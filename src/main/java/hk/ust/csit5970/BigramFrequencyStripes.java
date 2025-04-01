@@ -54,6 +54,16 @@ public class BigramFrequencyStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			if (words.length < 2) return;
+
+			for (int i = 0; i < words.length - 1; i++) {
+				if (words[i].length() == 0 || words[i+1].length() == 0) 
+					continue;
+				STRIPE.clear();
+				STRIPE.increment(words[i+1]);
+				KEY.set(words[i]);
+				context.write(KEY, STRIPE);
+			}
 		}
 	}
 
@@ -75,6 +85,28 @@ public class BigramFrequencyStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			SUM_STRIPES.clear();
+			int totalCount = 0;
+			for (HashMapStringIntWritable stripe : stripes) {
+				SUM_STRIPES.plus(stripe);
+			}
+			
+			for (String w2 : SUM_STRIPES.keySet()) {
+				totalCount += SUM_STRIPES.get(w2);
+			}
+			
+			if (totalCount > 0) {
+				String w1 = key.toString();
+				BIGRAM.set(w1, "");
+				FREQ.set(totalCount);
+				context.write(BIGRAM, FREQ);
+				for (String w2 : SUM_STRIPES.keySet()) {
+					BIGRAM.set(w1, w2);
+					float probability = (float)SUM_STRIPES.get(w2) / totalCount;
+					FREQ.set(probability);
+					context.write(BIGRAM, FREQ);
+				}
+			}
 		}
 	}
 
@@ -94,6 +126,11 @@ public class BigramFrequencyStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			SUM_STRIPES.clear();
+			for (HashMapStringIntWritable stripe : stripes) {
+				SUM_STRIPES.plus(stripe);
+			}
+			context.write(key, SUM_STRIPES);
 		}
 	}
 

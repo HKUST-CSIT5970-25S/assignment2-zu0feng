@@ -53,6 +53,17 @@ public class CORPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			while (doc_tokenizer.hasMoreTokens()) {
+                String token = doc_tokenizer.nextToken().toLowerCase();
+                if (word_set.containsKey(token)) {
+                    word_set.put(token, word_set.get(token) + 1);
+                } else {
+                    word_set.put(token, 1);
+                }
+            }
+            for (Map.Entry<String, Integer> entry : word_set.entrySet()) {
+                context.write(new Text(entry.getKey()), new IntWritable(entry.getValue()));
+            }
 		}
 	}
 
@@ -66,6 +77,11 @@ public class CORPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			int sum = 0;
+            for (IntWritable val : values) {
+                sum += val.get();
+            }
+            context.write(key, new IntWritable(sum));
 		}
 	}
 
@@ -81,6 +97,24 @@ public class CORPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			String line = value.toString();
+			Set<String> diffWords = new TreeSet<String>();
+            while (doc_tokenizer.hasMoreTokens()) {
+                String token = doc_tokenizer.nextToken().toLowerCase();
+                if (!token.isEmpty()) {
+                    diffWords.add(token);
+                }
+            }
+            List<String> wordsList = new ArrayList<String>(diffWords);
+            int n = wordsList.size();
+            for (int i = 0; i < n; i++) {
+                for (int j = i + 1; j < n; j++) {
+					String w1 = wordsList.get(i);
+					String w2 = wordsList.get(j);
+                    PairOfStrings pair = new PairOfStrings(w1, w2);
+                    context.write(pair, new IntWritable(1));
+                }
+            }
 		}
 	}
 
@@ -93,6 +127,11 @@ public class CORPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			int sum = 0;
+            for (IntWritable val : values) {
+                sum += val.get();
+            }
+            context.write(key, new IntWritable(sum));
 		}
 	}
 
@@ -145,6 +184,19 @@ public class CORPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			int pairCount = 0;
+            for (IntWritable val : values) {
+                pairCount += val.get();
+            }
+            String wordA = key.getLeftElement();
+            String wordB = key.getRightElement();
+            Integer freqA = word_total_map.get(wordA);
+            Integer freqB = word_total_map.get(wordB);
+            if (freqA == null || freqB == null || freqA == 0 || freqB == 0) {
+                return;
+            }
+            double correlation = (double) pairCount / (freqA * freqB);
+            context.write(key, new DoubleWritable(correlation));
 		}
 	}
 

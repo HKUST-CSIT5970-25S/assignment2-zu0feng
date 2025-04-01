@@ -43,6 +43,19 @@ public class CORStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			while (doc_tokenizer.hasMoreTokens()) {
+                String token = doc_tokenizer.nextToken().toLowerCase();
+                if (token.isEmpty()) continue;
+                if (word_set.containsKey(token)) {
+                    word_set.put(token, word_set.get(token) + 1);
+                } else {
+                    word_set.put(token, 1);
+                }
+            }
+            
+            for (Map.Entry<String, Integer> entry : word_set.entrySet()) {
+                context.write(new Text(entry.getKey()), new IntWritable(entry.getValue()));
+            }
 		}
 	}
 
@@ -56,6 +69,11 @@ public class CORStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			int sum = 0;
+            for (IntWritable val : values) {
+                sum += val.get();
+            }
+            context.write(key, new IntWritable(sum));
 		}
 	}
 
@@ -75,6 +93,27 @@ public class CORStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			List<String> wordsList = new ArrayList<String>(sorted_word_set);
+            int n = wordsList.size();
+            
+            for (int i = 0; i < n; i++) {
+                String wordA = wordsList.get(i);
+                MapWritable stripe = new MapWritable();
+                for (int j = i + 1; j < n; j++) {
+                    String wordB = wordsList.get(j);
+                    Text bText = new Text(wordB);
+                    
+                    if (stripe.containsKey(bText)) {
+                        IntWritable count = (IntWritable) stripe.get(bText);
+                        count.set(count.get() + 1);
+                    } else {
+                        stripe.put(bText, new IntWritable(1));
+                    }
+                }
+                if (!stripe.isEmpty()) {
+                    context.write(new Text(wordA), stripe);
+                }
+            }
 		}
 	}
 
@@ -89,6 +128,19 @@ public class CORStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			MapWritable combinedStripe = new MapWritable();
+            for (MapWritable stripe : values) {
+                for (Writable entryKey : stripe.keySet()) {
+                    IntWritable count = (IntWritable) stripe.get(entryKey);
+                    if (combinedStripe.containsKey(entryKey)) {
+                        IntWritable existing = (IntWritable) combinedStripe.get(entryKey);
+                        existing.set(existing.get() + count.get());
+                    } else {
+                        combinedStripe.put(entryKey, new IntWritable(count.get()));
+                    }
+                }
+            }
+            context.write(key, combinedStripe);
 		}
 	}
 
@@ -142,6 +194,36 @@ public class CORStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+            MapWritable combinedStripe = new MapWritable();
+            for (MapWritable stripe : values) {
+                for (Writable mapKey : stripe.keySet()) {
+                    IntWritable count = (IntWritable) stripe.get(mapKey);
+                    if (combinedStripe.containsKey(mapKey)) {
+                        IntWritable existing = (IntWritable) combinedStripe.get(mapKey);
+                        existing.set(existing.get() + count.get());
+                    } else {
+                        combinedStripe.put(mapKey, new IntWritable(count.get()));
+                    }
+                }
+            }
+            Integer freqA_b = word_total_map.get(key.toString());
+			if (freqA_b == null) {
+				return;
+			}
+			int freqA = freqA_b;
+
+            for (Writable mapKey : combinedStripe.keySet()) {
+                String wordB = mapKey.toString();
+                
+                if (key.toString().compareTo(wordB) < 0) {
+                    int freqB = word_total_map.containsKey(wordB) ? word_total_map.get(wordB) : 0;
+                    if (freqA != 0 && freqB != 0) {
+                        int freqAB = ((IntWritable) combinedStripe.get(mapKey)).get();
+                        double correlation = (double) freqAB / (freqA * freqB);
+                        context.write(new PairOfStrings(key.toString(), wordB), new DoubleWritable(correlation));
+                    }
+                }
+            }
 		}
 	}
 
